@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Reels Agency Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        /* Apple-like Minimalist Design System */
+        :root {
+            --bg-color: #F5F5F7;
+            --card-bg: #FFFFFF;
+            --text-primary: #1D1D1F;
+            --text-secondary: #86868B;
+            --accent: #0071E3;
+            --accent-hover: #0077ED;
+            --border: #D2D2D7;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #000000;
+                --card-bg: #1C1C1E;
+                --text-primary: #F5F5F7;
+                --text-secondary: #8E8E93;
+                --accent: #0A84FF;
+                --accent-hover: #409CFF;
+                --border: #38383A;
+                --shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            overscroll-behavior-y: none;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(128, 128, 128, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:active {
+            transform: scale(0.98);
+        }
+
+        .tab-btn {
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            display: block;
+            width: 20px;
+            height: 3px;
+            background-color: var(--accent);
+            border-radius: 2px;
+            margin: 4px auto 0;
+        }
+
+        /* Kanban Styles */
+        .kanban-col {
+            background-color: rgba(128, 128, 128, 0.05);
+            border-radius: 12px;
+            min-height: 200px;
+        }
+
+        .kanban-item {
+            cursor: grab;
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border: 1px solid var(--border);
+        }
+
+        .kanban-item:active {
+            cursor: grabbing;
+        }
+
+        .kanban-item.dragging {
+            opacity: 0.5;
+            border: 2px dashed var(--accent);
+        }
+
+        /* Custom Select */
+        .custom-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2386868B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+        }
+
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="px-4 pt-4 pb-2 bg-opacity-80 backdrop-blur-md sticky top-0 z-50" style="background-color: rgba(var(--bg-color), 0.8);">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl font-semibold tracking-tight">Reels Studio</h1>
+            <div class="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300">
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Agency" alt="Avatar" class="w-full h-full object-cover">
+            </div>
+        </div>
+        
+        <div class="relative">
+            <select id="clientSelect" class="custom-select w-full p-3 rounded-xl text-base font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1C1C1E] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
+                <option value="all">🏢 Все клиенты</option>
+                <option value="brand_a">☕ Local Coffee Co.</option>
+                <option value="brand_b">👟 Sneaker Store</option>
+                <option value="brand_c">💄 Glow Cosmetics</option>
+            </select>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto hide-scrollbar px-4 pb-24" id="mainContent">
+        
+        <!-- View: Kanban -->
+        <div id="view-kanban" class="view-section fade-in">
+            <div class="flex overflow-x-auto gap-4 pb-4 hide-scrollbar mt-2">
+                <!-- Column: Idea -->
+                <div class="flex-shrink-0 w-72">
+                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 px-1 uppercase tracking-wide">Идея</h3>
+                    <div class="kanban-col p-2 space-y-2" data-status="idea" ondrop="drop(event)" ondragover="allowDrop(event)">
+                        <!-- Items will be injected here -->
+                    </div>
+                </div>
+                <!-- Column: Prep -->
+                <div class="flex-shrink-0 w-72">
+                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 px-1 uppercase tracking-wide">Подготовка</h3>
+                    <div class="kanban-col p-2 space-y-2" data-status="prep" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                </div>
+                <!-- Column: Shooting -->
+                <div class="flex-shrink-0 w-72">
+                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 px-1 uppercase tracking-wide">Съемка</h3>
+                    <div class="kanban-col p-2 space-y-2" data-status="shooting" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                </div>
+                <!-- Column: Done -->
+                <div class="flex-shrink-0 w-72">
+                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 px-1 uppercase tracking-wide">Готово</h3>
+                    <div class="kanban-col p-2 space-y-2" data-status="done" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View: Calendar -->
+        <div id="view-calendar" class="view-section hidden fade-in mt-2">
+            <div class="card p-4 mb-4">
+                <div class="flex justify-between items-center mb-4">
+                    <button onclick="changeMonth(-1)" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">←</button>
+                    <h2 id="currentMonth" class="text-lg font-semibold"></h2>
+                    <button onclick="changeMonth(1)" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">→</button>
+                </div>
+                <div class="grid grid-cols-7 gap-2 text-center text-sm text-gray-500 mb-2">
+                    <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div>
+                </div>
+                <div id="calendarGrid" class="grid grid-cols-7 gap-2 text-center text-sm">
+                    <!-- Calendar days injected here -->
+                </div>
+            </div>
+            <div id="shootDetails" class="space-y-3">
+                <!-- Upcoming shoots list -->
+            </div>
+        </div>
+
+        <!-- View: Ideas -->
+        <div id="view-ideas" class="view-section hidden fade-in mt-2 space-y-3">
+            <!-- Ideas injected here -->
+        </div>
+
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1C1C1E] border-t border-gray-200 dark:border-gray-800 pb-safe z-50">
+        <div class="flex justify-around items-center h-16">
+            <button onclick="switchView('kanban')" class="tab-btn active flex flex-col items-center justify-center w-full h-full" data-view="kanban">
+                <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path></svg>
+                <span class="text-xs">Доска</span>
+            </button>
+            <button onclick="switchView('calendar')" class="tab-btn flex flex-col items-center justify-center w-full h-full" data-view="calendar">
+                <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <span class="text-xs">Календарь</span>
+            </button>
+            <button onclick="switchView('ideas')" class="tab-btn flex flex-col items-center justify-center w-full h-full" data-view="ideas">
+                <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                <span class="text-xs">Идеи</span>
+            </button>
+        </div>
+    </nav>
+
+    <script>
+        // --- Telegram WebApp Init ---
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        
+        // Настройка цветов под тему Telegram
+        document.documentElement.style.setProperty('--bg-color', tg.themeParams.bg_color || '#F5F5F7');
+        document.documentElement.style.setProperty('--card-bg', tg.themeParams.secondary_bg_color || '#FFFFFF');
+        document.documentElement.style.setProperty('--text-primary', tg.themeParams.text_color || '#1D1D1F');
+        document.documentElement.style.setProperty('--text-secondary', tg.themeParams.hint_color || '#86868B');
+        document.documentElement.style.setProperty('--accent', tg.themeParams.button_color || '#0071E3');
+
+        // --- State Management ---
+        let currentClient = 'all';
+        let currentDate = new Date();
+        
+        // Mock Data (в реальном проекте заменить на запросы к API/БД)
+        let tasks = JSON.parse(localStorage.getItem('reels_tasks')) || [
+            { id: '1', client: 'brand_a', title: 'Reels: Утренний кофе', desc: 'Снять процесс приготовления латте арт', status: 'idea', date: '2026-06-10' },
+            { id: '2', client: 'brand_b', title: 'Обзор новых Jordan', desc: 'Динамичный монтаж, переходы', status: 'prep', date: '2026-06-12' },
+            { id: '3', client: 'brand_a', title: 'Интервью с бариста', desc: '3 вопроса о работе', status: 'shooting', date: '2026-06-15' },
+            { id: '4', client: 'brand_c', title: 'Туториал по макияжу', desc: 'Вечерний образ за 5 минут', status: 'done', date: '2026-06-01' }
+        ];
+
+        let ideas = JSON.parse(localStorage.getItem('reels_ideas')) || [
+            { id: '1', client: 'brand_b', title: 'Трендовый звук с бегом', desc: 'Использовать аудио из топ-10, снять в парке' },
+            { id: '2', client: 'brand_c', title: 'До/После', desc: 'Классический формат, хорошее освещение' }
+        ];
+
+        // --- Core Functions ---
+        function saveData() {
+            localStorage.setItem('reels_tasks', JSON.stringify(tasks));
+            localStorage.setItem('reels_ideas', JSON.stringify(ideas));
+        }
+
+        function switchView(viewName) {
+            tg.HapticFeedback.impactOccurred('light');
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.view === viewName) btn.classList.add('active');
+            });
+
+            if (viewName === 'kanban') renderKanban();
+            if (viewName === 'calendar') renderCalendar();
+            if (viewName === 'ideas') renderIdeas();
+            
+            updateMainButton(viewName);
+        }
+
+        function updateMainButton(view) {
+            if (view === 'kanban' || view === 'ideas') {
+                tg.MainButton.setText(`Добавить ${view === 'kanban' ? 'задачу' : 'идею'}`);
+                tg.MainButton.show();
+                tg.MainButton.onClick(() => {
+                    tg.HapticFeedback.notificationOccurred('success');
+                    // В реальном приложении здесь открывается модальное окно
+                    const title = prompt('Введите название:');
+                    if(title) {
+                        const newItem = {
+                            id: Date.now().toString(),
+                            client: currentClient === 'all' ? 'brand_a' : currentClient,
+                            title: title,
+                            desc: 'Новое описание',
+                            status: view === 'kanban' ? 'idea' : null,
+                            date: new Date().toISOString().split('T')[0]
+                        };
+                        if(view === 'kanban') {
+                            tasks.push(newItem);
+                            renderKanban();
+                        } else {
+                            ideas.push(newItem);
+                            renderIdeas();
+                        }
+                        saveData();
+                    }
+                });
+            } else {
+                tg.MainButton.hide();
+            }
+        }
+
+        // --- Kanban Logic ---
+        function renderKanban() {
+            const cols = { idea: [], prep: [], shooting: [], done: [] };
+            const filteredTasks = currentClient === 'all' ? tasks : tasks.filter(t => t.client === currentClient);
+            
+            filteredTasks.forEach(task => {
+                if(cols[task.status]) cols[task.status].push(task);
+            });
+
+            for (const [status, items] of Object.entries(cols)) {
+                const colEl = document.querySelector(`.kanban-col[data-status="${status}"]`);
+                colEl.innerHTML = '';
+                items.forEach(task => {
+                    const clientName = task.client === 'brand_a' ? '☕ Coffee' : task.client === 'brand_b' ? '👟 Sneakers' : '💄 Glow';
+                    const el = document.createElement('div');
+                    el.className = 'kanban-item';
+                    el.draggable = true;
+                    el.ondragstart = (e) => drag(e, task.id);
+                    el.innerHTML = `
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">${clientName}</span>
+                            <span class="text-xs text-gray-400">${task.date.slice(5)}</span>
+                        </div>
+                        <h4 class="font-semibold text-sm mb-1">${task.title}</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">${task.desc}</p>
+                    `;
+                    colEl.appendChild(el);
+                });
+            }
+        }
+
+        function allowDrop(ev) { ev.preventDefault(); }
+        function drag(ev, taskId) {
+            ev.dataTransfer.setData("taskId", taskId);
+            ev.target.classList.add('dragging');
+        }
+        function drop(ev) {
+            ev.preventDefault();
+            const taskId = ev.dataTransfer.getData("taskId");
+            const newStatus = ev.target.closest('.kanban-col').dataset.status;
+            
+            const task = tasks.find(t => t.id === taskId);
+            if (task && task.status !== newStatus) {
+                task.status = newStatus;
+                saveData();
+                renderKanban();
+                tg.HapticFeedback.notificationOccurred('success');
+            }
+            document.querySelectorAll('.kanban-item').forEach(el => el.classList.remove('dragging'));
+        }
+
+        // --- Calendar Logic ---
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+            document.getElementById('currentMonth').innerText = `${monthNames[month]} ${year}`;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+
+            // Adjust for Monday start (0 = Sunday -> 7)
+            let startOffset = firstDay === 0 ? 6 : firstDay - 1;
+
+            for (let i = 0; i < startOffset; i++) {
+                grid.innerHTML += `<div></div>`;
+            }
+
+            const filteredTasks = currentClient === 'all' ? tasks : tasks.filter(t => t.client === currentClient);
+            const shootDays = filteredTasks.filter(t => t.status === 'shooting' || t.status === 'prep').map(t => t.date);
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const hasShoot = shootDays.includes(dateStr);
+                const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
+                
+                const dayEl = document.createElement('div');
+                dayEl.className = `p-2 rounded-full relative flex items-center justify-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${isToday ? 'bg-blue-500 text-white font-bold hover:bg-blue-600' : ''}`;
+                dayEl.innerText = day;
+                
+                if (hasShoot && !isToday) {
+                    dayEl.innerHTML += `<div class="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-red-500"></div>`;
+                }
+                
+                dayEl.onclick = () => {
+                    tg.HapticFeedback.impactOccurred('light');
+                    showDayDetails(dateStr, filteredTasks);
+                };
+                grid.appendChild(dayEl);
+            }
+            showDayDetails(null, filteredTasks); // Show upcoming by default
+        }
+
+        function changeMonth(delta) {
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            renderCalendar();
+        }
+
+        function showDayDetails(dateStr, taskList) {
+            const container = document.getElementById('shootDetails');
+            container.innerHTML = '<h3 class="font-semibold mb-2 text-gray-500 dark:text-gray-400 text-sm uppercase">Ближайшие съемки</h3>';
+            
+            const relevantTasks = dateStr 
+                ? taskList.filter(t => t.date === dateStr)
+                : taskList.filter(t => t.status === 'shooting' || t.status === 'prep').sort((a,b) => new Date(a.date) - new Date(b.date)).slice(0, 5);
+
+            if (relevantTasks.length === 0) {
+                container.innerHTML += '<p class="text-sm text-gray-400">Нет запланированных активностей</p>';
+                return;
+            }
+
+            relevantTasks.forEach(task => {
+                const clientName = task.client === 'brand_a' ? '☕ Local Coffee' : task.client === 'brand_b' ? '👟 Sneaker Store' : '💄 Glow Cosmetics';
+                container.innerHTML += `
+                    <div class="card p-3 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-lg">🎬</div>
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-sm">${task.title}</h4>
+                            <p class="text-xs text-gray-500">${clientName} • ${task.date}</p>
+                        </div>
+                        <span class="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">${task.status === 'shooting' ? 'Съемка' : 'Подготовка'}</span>
+                    </div>
+                `;
+            });
+        }
+
+        // --- Ideas Logic ---
+        function renderIdeas() {
+            const container = document.getElementById('view-ideas');
+            container.innerHTML = '';
+            const filteredIdeas = currentClient === 'all' ? ideas : ideas.filter(i => i.client === currentClient);
+
+            if(filteredIdeas.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-400 mt-10">Пока нет идей. Добавьте первую!</div>';
+                return;
+            }
+
+            filteredIdeas.forEach(idea => {
+                const clientName = idea.client === 'brand_a' ? '☕ Coffee' : idea.client === 'brand_b' ? '👟 Sneakers' : '💄 Glow';
+                const el = document.createElement('div');
+                el.className = 'card p-4 fade-in';
+                el.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-medium px-2 py-1 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">${clientName}</span>
+                        <button onclick="deleteIdea('${idea.id}')" class="text-gray-400 hover:text-red-500">✕</button>
+                    </div>
+                    <h3 class="font-semibold text-base mb-1">${idea.title}</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">${idea.desc}</p>
+                    <button onclick="convertToTask('${idea.id}')" class="mt-3 w-full py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+                        Превратить в задачу
+                    </button>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function deleteIdea(id) {
+            tg.HapticFeedback.impactOccurred('medium');
+            ideas = ideas.filter(i => i.id !== id);
+            saveData();
+            renderIdeas();
+        }
+
+        function convertToTask(id) {
+            const idea = ideas.find(i => i.id === id);
+            if(idea) {
+                tasks.push({
+                    ...idea,
+                    status: 'idea',
+                    date: new Date().toISOString().split('T')[0]
+                });
+                deleteIdea(id);
+                saveData();
+                switchView('kanban');
+                tg.HapticFeedback.notificationOccurred('success');
+            }
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('clientSelect').addEventListener('change', (e) => {
+            currentClient = e.target.value;
+            tg.HapticFeedback.selectionChanged();
+            const activeView = document.querySelector('.tab-btn.active').dataset.view;
+            switchView(activeView);
+        });
+
+        // Init
+        switchView('kanban');
+    </script>
+</body>
+</html>
